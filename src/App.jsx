@@ -1,44 +1,54 @@
 import { useEffect, useState } from 'react';
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import { io } from 'socket.io-client';
 import './App.css';
+
+const WS_URL = 'http://localhost:3000/';
 
 function App() {
 
-  const WS_URL = 'ws://localhost:3000/';
 
-  /*const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(
-    WS_URL,
-    {
-      share: false,
-      shouldReconnect: () => true,
-    },
-  )*/
+  
 
-  const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket(WS_URL, {
-      onOpen: () => {
-        console.log("WebSocket connection established.");
-      },
-      share: true,
-      filter: () => false,
-      retryOnError: true,
-      shouldReconnect: () => true,
-  });
+  const [socket, setSocket] = useState(null);
+  const [readyState, setReadyState] = useState(null);
+  const [lastJsonMessage, setLastJsonMessage] = useState(null);
 
-  console.log({
-    sendJsonMessage, lastJsonMessage, readyState
-  })
+  useEffect(() => {
+
+    const newSocket = io(WS_URL, {
+      rejectUnauthorized: false,
+    });
+
+    setSocket(newSocket);
+
+    newSocket.on('connect', () => {
+      setReadyState(newSocket.readyState);
+    });
+
+    newSocket.on('disconnect', () => {
+      setReadyState(newSocket.readyState);
+    });
+
+    newSocket.on('pong', (message) => {
+      setLastJsonMessage(message);
+    });
+
+    return () => {
+      newSocket.close();
+    };
+  }, []);
 
   // Run when the connection state (readyState) changes
   useEffect(() => {
-    console.log("Connection state changed")
-    if (readyState === ReadyState.OPEN) {
+    console.log("Connection state changed 'readyState':", readyState)
+    /*if (readyState === ReadyState.OPEN) {
       sendJsonMessage({
         event: "subscribe",
         data: {
           channel: "general-chatroom",
         },
       })
-    }
+    }*/
   }, [readyState])
 
   // Run when a new WebSocket message is received (lastJsonMessage)
@@ -48,11 +58,10 @@ function App() {
 
 
 
-  const [count, setCount] = useState(0);
-
 
   const handleMessage = (e) => {
-
+    e.preventDefault();
+    socket.emit('ping', 'ping');
   }
 
   return (
@@ -60,11 +69,11 @@ function App() {
       <h1>ReactJS with Websocket</h1>
       <div className="card">
         <button onClick={handleMessage}>
-          count is {count} - Message: {lastJsonMessage}
+          Haz PING
         </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
+        <pre>
+          {lastJsonMessage && JSON.stringify(lastJsonMessage, null, 2)}
+        </pre>
       </div>
     </>
   )
